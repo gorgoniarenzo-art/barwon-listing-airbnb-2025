@@ -1,0 +1,122 @@
+DATA IMPORT
+  
+Uploading the CSV files
+
+When uploading the monthly CSV files into BigQuery, several files triggered minor load errors caused by small formatting issues in text fields. 
+To prevent these issues from blocking the entire ingestion process, the load jobs were configured to allow a limited number of errors (76–78 rows per file). 
+This approach safely skipped a small number of corrupted records while successfully importing more than 99.5% of the dataset. 
+The excluded rows were statistically insignificant and had no material impact on key performance metrics such as Average Daily Rate (ADR) or Market Share.
+  
+DATA CONSOLIDATION AND STANDARDIZATION 
+  
+To perform a full-year analysis of Barwon’s rental market, I consolidated four separate quarterly datasets into a single master table. This process involved three critical steps:
+Uniformity (UNION ALL): I combined the tables into one continuous dataset. Since SQL requires all combined tables to have matching columns, I selected only the essential fields, 
+effectively removing any inconsistent "extra" columns found in certain quarters.
+Standardization (SAFE_CAST): I synchronized data types across all quarterly files to ensure the merged dataset could be analyzed reliably. 
+Some columns were stored inconsistently across the original CSVs — for example, price, latitude, and longitude appeared as text in certain quarters. 
+I used SAFE_CAST to convert these fields into FLOAT64, ensuring they are treated as numerical values.
+Temporal Labeling (Quarter Column): I created a new quarter column (e.g., 'Q1', 'Q2') during the merge. 
+This "labels" each row so that I can compare seasonal trends (e.g., Summer vs. Winter) even after the data is combined.
+
+CREATE TABLE `barwon_airbnb.barwon_full_year` AS
+-- Q1: March 2025
+SELECT id, neighbourhood, room_type, 
+       SAFE_CAST(price AS FLOAT64) AS price,
+       SAFE_CAST(latitude AS FLOAT64) AS latitude,
+       SAFE_CAST(longitude AS FLOAT64) AS longitude,
+       minimum_nights, number_of_reviews, availability_365, 
+       'Q1' AS quarter
+FROM `case-study-2025-483513.barwon_airbnb.barwon_q1`
+
+UNION ALL
+-- Q2: June 2025
+SELECT id, neighbourhood, room_type, 
+       SAFE_CAST(price AS FLOAT64) AS price,
+       SAFE_CAST(latitude AS FLOAT64) AS latitude,
+       SAFE_CAST(longitude AS FLOAT64) AS longitude,
+       minimum_nights, number_of_reviews, availability_365, 
+       'Q2'
+FROM `barwon_airbnb.barwon_q2`
+
+UNION ALL
+-- Q3: September 2025
+SELECT id, neighbourhood, room_type, 
+       SAFE_CAST(price AS FLOAT64) AS price,
+       SAFE_CAST(latitude AS FLOAT64) AS latitude,
+       SAFE_CAST(longitude AS FLOAT64) AS longitude,
+       minimum_nights, number_of_reviews, availability_365, 
+       'Q3'
+FROM `barwon_airbnb.barwon_q3`
+
+UNION ALL
+-- Q4: December 2024
+SELECT id, neighbourhood, room_type, 
+       SAFE_CAST(price AS FLOAT64) AS price,
+       SAFE_CAST(latitude AS FLOAT64) AS latitude,
+       SAFE_CAST(longitude AS FLOAT64) AS longitude,
+       minimum_nights, number_of_reviews, availability_365, 
+       'Q4'
+FROM `barwon_airbnb.barwon_q4`
+
+DATA CLEANING AND VALIDATION
+
+After merging the datasets, I performed a rigorous cleaning process to remove "garbage" data and correct alignment errors caused by formatting inconsistencies in the original CSV files. 
+This process involved three critical steps:
+Coordinate Correction (Conditional Swapping): I identified rows where latitude and longitude values were swapped due to column shifting. 
+I used CASE statements to detect these errors (e.g., checking if a latitude was positive instead of negative for the Australian region) and automatically flipped them back to their 
+correct positions to maintain geographic accuracy.
+Pattern-Based Filtering (REGEX): To remove rows where data had "bled" into the wrong columns (a common issue when listing names contain extra commas), I used Regular Expressions. 
+This ensured that ID numbers and review counts only contained digits, and that text fields like neighbourhood and room_type did not contain numeric coordinate data.
+Logic and Quality Thresholds: I established a price range of 40 to 900 to remove "placeholder" listings and extreme outliers that could distort the analysis. 
+The lower bound of 40 AUD excludes unrealistically cheap or incomplete listings, while the upper bound of 900 AUD corresponds to the 95th percentile of listing prices in the dataset. 
+This ensures that the final dataset focuses on the typical market range, maintaining the integrity of average rental price calculations. 
+Additionally, by filtering out null values and enforcing numeric validation for critical columns like number_of_reviews and id, I ensured that the dataset reflects accurate and 
+reliable information for the Barwon region.
+
+--Data cleaning and aggregation
+CREATE TABLE `barwon_airbnb.barwon_full_year_cleaned` AS
+SELECT *,
+--If latitude looks like a longitude (positive 144), swap it
+  CASE 
+    WHEN latitude > 100 THEN longitude 
+    ELSE latitude 
+  END AS corrected_latitude,
+  --If longitude looks like a latitude (negative 38), swap it
+  CASE 
+    WHEN longitude < 0 THEN latitude 
+    ELSE longitude 
+  END AS corrected_longitude
+FROM `barwon_airbnb.barwon_full_year`
+WHERE 
+  --Ensuring 'id' is a proper numeric ID 
+  REGEXP_CONTAINS(id, r'^[0-9]+$')
+  --Ensuring neighborhood contain text (like 'Glenelg') and not coordinate numbers
+  AND NOT REGEXP_CONTAINS(neighbourhood, r'^-?[0-9.]+$') 
+  --Ensuring room_type is a descriptive text, not numbers
+  AND NOT REGEXP_CONTAINS(room_type, r'^[0-9.]+$')
+  --Handling null values and price outliers
+  AND price IS NOT NULL 
+  AND price > 40
+  AND price < 900
+  --Ensuring number_of_reviews is a number, not a date
+  AND REGEXP_CONTAINS(number_of_reviews, r'^[0-9]+$')
+
+DATA ANALYSIS
+
+To identify the key location drivers of pricing and competition, I analyzed average listing prices and market share across neighborhoods and room types. 
+By aggregating cleaned listing data, I compared neighborhood-level pricing against listing density to reveal how location influences both revenue potential and competitive pressure. 
+This analysis highlights whether high prices are driven by exclusivity (low supply) or saturation (high supply), enabling clear identification of premium coastal markets, competitive urban clusters, 
+and underserved high-value investment zones.
+
+--Checking Location Drivers (Price VS Neighbourhood)
+SELECT 
+  neighbourhood,
+  ROUND(AVG(price), 2) AS avg_neighbourhood_price,
+  --How many competitors are in this area?
+  COUNT(id) AS density, 
+  room_type,
+  --Calculating market share
+  ROUND(100 * COUNT(id) / SUM(COUNT(id)) OVER(), 2) AS market_share_percent
+FROM `barwon_airbnb.barwon_full_year_cleaned`
+GROUP BY neighbourhood, room_type
+ORDER BY avg_neighbourhood_price DESC;
