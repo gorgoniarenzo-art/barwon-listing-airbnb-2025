@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This repository contains a strategic market analysis of the Barwon region (Greater Geelong & Surf Coast, Australia) for the 2024-2025 period. By analyzing quarterly performance data, this project identifies the "Location Drivers" that dictate pricing power, allowing hosts and investors to optimize their revenue based on geographic and property-type trends.
+This project utilizes a full-year dataset (2024-2025 period) to decode the geographic and property-type trends of the Barwon region. By analyzing the annual distribution of rental performance, this project decodes the 'Location Drivers' that dictate pricing power. The resulting insights empower hosts and investors to optimize revenue by identifying high-value geographic trends and property-type preferences.
 
 ## Project Overview
 
