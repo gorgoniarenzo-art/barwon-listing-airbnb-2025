@@ -89,11 +89,13 @@ Beachfront neighborhoods, particularly in the Surf Coast, command significantly 
 
 Entire home/apt listings dominate with a 91.92% market share, signaling that Barwon travelers prioritize privacy and space over shared living options.
 
-**Market Segmentation:** 
+**The "Luxury Niche":**
 
-By comparing price against density, I identified "Luxury Niches"—neighborhoods with low supply but high ADR—representing the most underserved investment zones in the region.
+Neighborhoods with low density but high average prices represent "exclusive" markets where supply is limited but guest willingness-to-pay is high.
 
-Queenscliffe has an average price of $392.96 but a density of only 854, making it a textbook "Luxury Niche".
+**Market Saturation Risks:**
+
+High-density areas with lower-than-average prices indicate a "saturated" market where hosts must compete primarily on price rather than luxury.
 
 ### 5. Share
 
@@ -103,7 +105,7 @@ Queenscliffe has an average price of $392.96 but a density of only 854, making i
 
 **Top 3 Recommendations:**
 
-1. **Prioritize Location Quality:**
+1. **Prioritize Location:**
   
 Target "Low Density + High Price" coastal pockets. These underserved areas offer the highest ROI potential with minimal competitive friction.
 
